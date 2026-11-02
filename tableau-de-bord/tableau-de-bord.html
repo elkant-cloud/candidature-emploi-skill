@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des candidatures</title>
+<style>
+:root {
+  --bg: #f5f7fa; --surface: #ffffff; --fg: #18222d; --muted: #5d6b79; --line: #dde3ea;
+  --accent: #1d5c8c; --accent-fg: #ffffff;
+  --ok: #1f7a4d; --ok-bg: #e3f3ea; --warn: #9a5b00; --warn-bg: #fbefdc;
+  --info: #2a5f9e; --info-bg: #e5eef8; --idle: #5d6b79; --idle-bg: #eceff3; --bad: #a3322a; --bad-bg: #f8e3e1;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #11161c; --surface: #19212a; --fg: #e6ebf0; --muted: #9aa7b4; --line: #2a3541;
+    --accent: #7db3de; --accent-fg: #0d1620;
+    --ok: #6fcf9b; --ok-bg: #173126; --warn: #f0b765; --warn-bg: #33281a;
+    --info: #8fbbe6; --info-bg: #1b2a3a; --idle: #9aa7b4; --idle-bg: #232c36; --bad: #f08a80; --bad-bg: #3a1f1d;
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--fg); font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+.wrap { max-width: 1100px; margin: 0 auto; padding: 28px 16px 48px; display: grid; gap: 20px; }
+h1 { margin: 0; font-size: 26px; }
+.sub { color: var(--muted); margin: 4px 0 0; }
+.stats { display: flex; flex-wrap: wrap; gap: 10px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 120px; }
+.stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
+.stat span { color: var(--muted); font-size: 13px; }
+.bar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+input, select, textarea, button { font: inherit; color: var(--fg); }
+input, select, textarea { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 7px 9px; }
+button { cursor: pointer; border: 1px solid var(--line); background: var(--surface); border-radius: 6px; padding: 7px 12px; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); color: var(--accent-fg); border-color: var(--accent); }
+button.link { border: 0; background: none; color: var(--accent); padding: 2px 4px; }
+button.danger { color: var(--bad); }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.grow { flex: 1 1 200px; }
+.table-wrap { overflow-x: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; }
+table { width: 100%; border-collapse: collapse; min-width: 760px; }
+th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); }
+tr:last-child td { border-bottom: 0; }
+.poste { font-weight: 600; }
+.org { color: var(--muted); font-size: 13px; }
+.chip { display: inline-block; font-size: 12px; font-weight: 600; padding: 3px 9px; border-radius: 999px; white-space: nowrap; }
+.s-repere { color: var(--idle); background: var(--idle-bg); }
+.s-envoyee { color: var(--info); background: var(--info-bg); }
+.s-entretien { color: var(--ok); background: var(--ok-bg); }
+.s-offre { color: var(--ok); background: var(--ok-bg); }
+.s-relance { color: var(--warn); background: var(--warn-bg); }
+.s-refus { color: var(--bad); background: var(--bad-bg); }
+.score { font-variant-numeric: tabular-nums; font-weight: 600; }
+.late { color: var(--warn); font-weight: 600; }
+.empty { padding: 28px; text-align: center; color: var(--muted); }
+dialog { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); padding: 0; width: min(560px, calc(100% - 32px)); }
+dialog::backdrop { background: rgba(0,0,0,.4); }
+form.edit { display: grid; gap: 12px; padding: 20px; }
+form.edit h2 { margin: 0 0 4px; font-size: 18px; }
+.row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+@media (max-width: 520px) { .row { grid-template-columns: 1fr; } }
+label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+.actions { display: flex; justify-content: flex-end; gap: 8px; }
+.note { font-size: 13px; color: var(--muted); }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Suivi des candidatures</h1>
+    <p class="sub">Tes données restent dans ce navigateur. Pense à exporter de temps en temps pour garder une sauvegarde.</p>
+  </header>
+
+  <div class="stats" id="stats"></div>
+
+  <div class="bar">
+    <button class="primary" id="add">Ajouter une candidature</button>
+    <input class="grow" id="q" type="search" placeholder="Rechercher un poste, une entreprise…" aria-label="Rechercher">
+    <select id="f" aria-label="Filtrer par statut"></select>
+    <button id="exp">Exporter (JSON)</button>
+    <button id="csv">Exporter (CSV)</button>
+    <button id="imp">Importer</button>
+    <input type="file" id="file" accept="application/json" hidden>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>Poste</th><th>Score</th><th>Statut</th><th>Envoyée le</th><th>Relance</th><th>Notes</th><th></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="empty" hidden>Aucune candidature pour l'instant. Clique sur « Ajouter une candidature » pour commencer.</div>
+  </div>
+  <p class="note">Astuce : après une analyse d'offre avec le skill « candidature-emploi », reporte ici le score et la recommandation.</p>
+</div>
+
+<dialog id="dlg">
+  <form class="edit" id="form" method="dialog">
+    <h2 id="dlgTitle">Nouvelle candidature</h2>
+    <label>Poste <input id="poste" required></label>
+    <div class="row">
+      <label>Entreprise ou cabinet <input id="org"></label>
+      <label>Ville et mode <input id="lieu" placeholder="ex. Casablanca, hybride"></label>
+    </div>
+    <label>Lien de l'annonce <input id="lien" type="url" placeholder="https://"></label>
+    <div class="row">
+      <label>Score (sur 100) <input id="score" type="number" min="0" max="100"></label>
+      <label>Statut <select id="statut"></select></label>
+    </div>
+    <div class="row">
+      <label>Envoyée le <input id="envoi" type="date"></label>
+      <label>Relance prévue le <input id="relance" type="date"></label>
+    </div>
+    <label>Notes <textarea id="notes" rows="3" placeholder="Contact, référence, documents envoyés…"></textarea></label>
+    <div class="actions">
+      <button type="button" class="danger" id="del" hidden>Supprimer</button>
+      <button type="button" id="cancel">Annuler</button>
+      <button type="submit" class="primary">Enregistrer</button>
+    </div>
+  </form>
+</dialog>
+
+<script>
+const KEY = "suivi-candidatures-v1";
+const STATUTS = [
+  ["repere", "Repérée"], ["envoyee", "Envoyée"], ["relance", "À relancer"],
+  ["entretien", "Entretien"], ["offre", "Offre reçue"], ["refus", "Refus"]
+];
+const label = Object.fromEntries(STATUTS);
+let items = load();
+let editing = null;
+
+function load() { try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(items)); } catch {} render(); }
+const $ = id => document.getElementById(id);
+const today = () => new Date().toISOString().slice(0, 10);
+const fmt = d => d ? new Date(d + "T00:00").toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" }) : "";
+
+$("f").innerHTML = '<option value="">Tous les statuts</option>' + STATUTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+$("statut").innerHTML = STATUTS.map(([v, l]) => `<option value="${v}">${l}</option>`).join("");
+
+function render() {
+  const q = $("q").value.toLowerCase(), f = $("f").value;
+  const list = items
+    .filter(i => (!f || i.statut === f) && (!q || [i.poste, i.org, i.lieu, i.notes].join(" ").toLowerCase().includes(q)))
+    .sort((a, b) => (b.envoi || b.cree || "").localeCompare(a.envoi || a.cree || ""));
+  const tb = $("rows"); tb.textContent = "";
+  for (const i of list) {
+    const tr = document.createElement("tr");
+    const late = i.relance && i.relance <= today() && !["refus", "offre"].includes(i.statut);
+    tr.innerHTML = `
+      <td><div class="poste"></div><div class="org"></div></td>
+      <td class="score"></td>
+      <td><span class="chip s-${i.statut}"></span></td>
+      <td></td>
+      <td class="${late ? "late" : ""}"></td>
+      <td class="org"></td>
+      <td><button class="link">Modifier</button></td>`;
+    const c = tr.children;
+    if (i.lien) { const a = document.createElement("a"); a.href = i.lien; a.target = "_blank"; a.rel = "noopener"; a.textContent = i.poste; c[0].firstElementChild.append(a); }
+    else c[0].firstElementChild.textContent = i.poste;
+    c[0].lastElementChild.textContent = [i.org, i.lieu].filter(Boolean).join(" · ");
+    c[1].textContent = i.score !== "" && i.score != null ? i.score + " %" : "";
+    c[2].firstElementChild.textContent = label[i.statut] || i.statut;
+    c[3].textContent = fmt(i.envoi);
+    c[4].textContent = fmt(i.relance) + (late ? " (à faire)" : "");
+    c[5].textContent = i.notes || "";
+    c[6].firstElementChild.onclick = () => open(i);
+    tb.append(tr);
+  }
+  $("empty").hidden = items.length > 0;
+  const n = s => items.filter(i => i.statut === s).length;
+  const relances = items.filter(i => i.relance && i.relance <= today() && !["refus", "offre"].includes(i.statut)).length;
+  $("stats").innerHTML = [
+    [items.length, "candidatures"], [n("envoyee") + n("relance"), "en attente"],
+    [n("entretien"), "entretiens"], [relances, "relances à faire"]
+  ].map(([v, l]) => `<div class="stat"><b>${v}</b><span>${l}</span></div>`).join("");
+}
+
+function open(item) {
+  editing = item || null;
+  $("dlgTitle").textContent = item ? "Modifier la candidature" : "Nouvelle candidature";
+  for (const k of ["poste", "org", "lieu", "lien", "score", "envoi", "relance", "notes"]) $(k).value = item?.[k] ?? "";
+  $("statut").value = item?.statut || "repere";
+  $("del").hidden = !item;
+  $("dlg").showModal();
+}
+
+$("add").onclick = () => open(null);
+$("cancel").onclick = () => $("dlg").close();
+$("del").onclick = () => { items = items.filter(i => i !== editing); $("dlg").close(); save(); };
+$("form").onsubmit = e => {
+  e.preventDefault();
+  const data = {};
+  for (const k of ["poste", "org", "lieu", "lien", "score", "statut", "envoi", "relance", "notes"]) data[k] = $(k).value.trim();
+  if (editing) Object.assign(editing, data); else items.push({ ...data, id: Date.now(), cree: today() });
+  $("dlg").close(); save();
+};
+$("q").oninput = render; $("f").onchange = render;
+
+function download(name, text, type) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([text], { type }));
+  a.download = name; a.click(); URL.revokeObjectURL(a.href);
+}
+$("exp").onclick = () => download("candidatures.json", JSON.stringify(items, null, 2), "application/json");
+$("csv").onclick = () => {
+  const cols = ["poste", "org", "lieu", "lien", "score", "statut", "envoi", "relance", "notes"];
+  const esc = v => `"${String(v ?? "").replace(/"/g, '""')}"`;
+  const lines = [cols.join(";"), ...items.map(i => cols.map(c => esc(c === "statut" ? label[i[c]] : i[c])).join(";"))];
+  download("candidatures.csv", "﻿" + lines.join("\n"), "text/csv");
+};
+$("imp").onclick = () => $("file").click();
+$("file").onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try { const data = JSON.parse(await f.text()); if (Array.isArray(data)) { items = data; save(); } }
+  catch { $("empty").hidden = false; $("empty").textContent = "Fichier illisible : choisis un export JSON de ce tableau de bord."; }
+  e.target.value = "";
+};
+render();
+</script>
+</body>
+</html>
